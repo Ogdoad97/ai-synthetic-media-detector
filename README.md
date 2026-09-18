@@ -136,14 +136,24 @@ A full evaluation of the idea, realistic use cases, open-source vs commercial pa
 
 **→ [docs/EVALUATION_AND_ROADMAP.md](docs/EVALUATION_AND_ROADMAP.md)**
 
+For the gate-by-gate engineering plan (matching this developer's other projects' discipline: build → test → verify → harden → promote → document), see **[docs/DEVELOPMENT_PLAN_GATES.md](docs/DEVELOPMENT_PLAN_GATES.md)**.
+
 Key takeaways:
 - Strong technical foundation with real market opportunity
 - Passive detection alone is currently losing the arms race — treat every score as a *signal*
 - Recommended path: open-source core + paid model updates / hosted API / vertical products
 - Long-term evolution toward hybrid provenance (C2PA) + detection + human-in-the-loop authenticity infrastructure
 
+## Contributing
+
+This project is public and open to contributors — see
+**[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, ground rules, and the
+current highest-priority gaps (file magic-byte validation, and — the
+single most valuable contribution possible — a real evaluation harness
+that turns "a heuristic signal" into a measured detector).
+
 ## License & Handover
 
-This package is the complete technical handover. All code contains comprehensive docstrings and type annotations so a new engineer can extend any component without reverse-engineering.
+This package is the complete technical handover, licensed under MIT (see `LICENSE`). All code contains comprehensive docstrings and type annotations so a new engineer can extend any component without reverse-engineering.
 
 Built for maximum accuracy, explainability, and rapid adaptation to new generative models.
