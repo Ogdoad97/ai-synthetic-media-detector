@@ -1,0 +1,11 @@
+# Install this ONLY once app/services/heatmap_engine.py's GradCAMHeatmapGenerator
+# is actually wired to a real trained model (see README "Next Steps" and
+# docs/DEVELOPMENT_STATUS_v0.2.0.md). As of this version, heatmap_engine.py is
+# unused by the live analysis path (app/services/analyzer.py uses its own
+# deterministic OpenCV heuristic heatmap instead) - confirmed by running the
+# full app and test suite with torch NOT installed at all; nothing imports
+# this file. Installing it unconditionally in the base requirements.txt cost
+# every deployment/CI run a multi-GB dependency for code that isn't called
+# yet, so it was split out here.
+torch>=2.4.0
+torchvision>=0.19.0

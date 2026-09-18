@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - TEMP_MEDIA_DIR=/tmp/ai_detector_media
+      - MODEL_DEVICE=cpu
+    volumes:
+      - ./backend:/app
+      - media_tmp:/tmp/ai_detector_media
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info --concurrency=2 -Q media
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - TEMP_MEDIA_DIR=/tmp/ai_detector_media
+      - MODEL_DEVICE=cpu
+    volumes:
+      - ./backend:/app
+      - media_tmp:/tmp/ai_detector_media
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.core.celery_app.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - worker
+
+volumes:
+  redis_data:
+  media_tmp:

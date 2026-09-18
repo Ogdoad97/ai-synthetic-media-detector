@@ -1,0 +1,88 @@
+import cv2
+import torch
+import torch.nn as nn
+import numpy as np
+import base64
+from PIL import Image
+from io import BytesIO
+
+class GradCAMHeatmapGenerator:
+    """
+    Generates class-activation heatmaps (Grad-CAM) to highlight region-specific
+    AI artifacts (hair, skin boundaries, eyes, frequency noise) in media.
+    """
+    def __init__(self, model: nn.Module, target_layer: nn.Module):
+        self.model = model
+        self.target_layer = target_layer
+        self.gradients = None
+        self.activations = None
+        
+        # Register hooks for gradients and activations
+        self.target_layer.register_forward_hook(self._save_activations)
+        self.target_layer.register_full_backward_hook(self._save_gradients)
+
+    def _save_activations(self, module, input, output):
+        self.activations = output
+
+    def _save_gradients(self, module, grad_input, grad_output):
+        self.gradients = grad_output[0]
+
+    def generate_heatmap(self, input_tensor: torch.Tensor, class_idx: int = None) -> np.ndarray:
+        """
+        Calculates CAM map for given input tensor.
+        Returns normalized 2D numpy array [0, 1].
+        """
+        self.model.eval()
+        output = self.model(input_tensor)
+        
+        if class_idx is None:
+            class_idx = torch.argmax(output, dim=1).item()
+            
+        self.model.zero_grad()
+        score = output[0, class_idx]
+        score.backward()
+        
+        gradients = self.gradients.data.cpu().numpy()[0]
+        activations = self.activations.data.cpu().numpy()[0]
+        
+        weights = np.mean(gradients, axis=(1, 2))
+        cam = np.zeros(activations.shape[1:], dtype=np.float32)
+        
+        for i, w in enumerate(weights):
+            cam += w * activations[i]
+            
+        cam = np.maximum(cam, 0)
+        if np.max(cam) > 0:
+            cam = cam / np.max(cam)
+        return cam
+
+    def overlay_heatmap(self, raw_image_bytes: bytes, cam_map: np.ndarray, alpha: float = 0.5) -> str:
+        """
+        Blends heatmap over original image using OpenCV JET colormap.
+        Returns Base64-encoded JPEG image string.
+        """
+        nparr = np.frombuffer(raw_image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        h, w, _ = img.shape
+        
+        # Resize CAM to match original image dimensions
+        resized_cam = cv2.resize(cam_map, (w, h))
+        heatmap = cv2.applyColorMap(np.uint8(255 * resized_cam), cv2.COLORMAP_JET)
+        
+        # Overlay heatmap on original image
+        overlay = cv2.addWeighted(img, 1.0 - alpha, heatmap, alpha, 0)
+        
+        # Encode to JPEG base64
+        _, buffer = cv2.imencode('.jpg', overlay, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        b64_str = base64.b64encode(buffer).decode('utf-8')
+        return f"data:image/jpeg;base64,{b64_str}"
+
+# Helper function for API response pipeline
+def generate_visual_report(model, target_layer, image_bytes: bytes, input_tensor: torch.Tensor) -> dict:
+    generator = GradCAMHeatmapGenerator(model, target_layer)
+    cam = generator.generate_heatmap(input_tensor)
+    b64_heatmap = generator.overlay_heatmap(image_bytes, cam)
+    return {
+        "heatmap_base64": b64_heatmap,
+        "max_artifact_intensity": float(np.max(cam))
+    }

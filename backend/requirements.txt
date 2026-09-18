@@ -1,0 +1,27 @@
+# Core API
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+
+# Async workers
+celery[redis]>=5.4.0
+redis>=5.1.0
+httpx>=0.27.0
+
+# Vision / media - the CURRENT live analyzer (app/services/analyzer.py) is
+# a deterministic OpenCV/PIL heuristic and does NOT use torch. torch/
+# torchvision moved to requirements-ml.txt (see there for why) - install
+# that file too only once a real trained model is wired into
+# app/services/heatmap_engine.py's Grad-CAM path.
+opencv-python-headless>=4.10.0
+Pillow>=10.4.0
+numpy>=1.26.0
+
+# Optional C2PA (uncomment when ready)
+# c2pa-python>=0.37.0
+# fast-c2pa-python>=0.1.6
+
+# Dev / observability
+flower>=2.0.1
