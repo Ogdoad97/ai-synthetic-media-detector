@@ -1,6 +1,6 @@
 # AI Synthetic Media Authenticity Detector
 
-**v0.3.0 development build** – Cloud-first hybrid architecture for screening images and videos for synthetic-media forensic signals with an explainable artifact heatmap. Independently security-audited this round — see `docs/AUDIT_HARDENING_REPORT_v0.3.0.md` for a DNS-rebinding SSRF fix, rate limiting, and an image decompression-bomb guard, all verified live against the running server, not just in tests.
+**v0.3.1 development build** – Cloud-first hybrid architecture for screening images and videos for synthetic-media forensic signals with an explainable artifact heatmap. Independently security-audited this round — see `docs/AUDIT_HARDENING_REPORT_v0.3.0.md` for a DNS-rebinding SSRF fix, rate limiting, and an image decompression-bomb guard, all verified live against the running server, not just in tests. v0.3.1 completes input validation (Gate D2): magic-byte file signature checks instead of trusting `Content-Type`, sanitized error responses, video adversarial hardening — see `docs/AUDIT_HARDENING_REPORT_v0.3.1.md`.
 
 ## Architecture Overview
 
@@ -118,7 +118,7 @@ ai-synthetic-media-detector/
 
 ## Important scientific status
 
-v0.3.0 is an **experimental forensic baseline**, not a validated AI detector. Its score is a heuristic signal and must not be interpreted as a probability or proof of origin. The next accuracy milestone is a trained ensemble evaluated on held-out, cross-generator datasets with calibration, ROC/PR curves, and robustness tests. This round's audit (`docs/AUDIT_HARDENING_REPORT_v0.3.0.md`) hardened the system's *security and robustness* boundary — SSRF resistance, rate limiting, decompression-bomb protection — which is a separate concern from detection accuracy and doesn't change the scientific status above.
+v0.3.1 is an **experimental forensic baseline**, not a validated AI detector. Its score is a heuristic signal and must not be interpreted as a probability or proof of origin. The next accuracy milestone is a trained ensemble evaluated on held-out, cross-generator datasets with calibration, ROC/PR curves, and robustness tests. This round's audit (`docs/AUDIT_HARDENING_REPORT_v0.3.0.md`) hardened the system's *security and robustness* boundary — SSRF resistance, rate limiting, decompression-bomb protection — which is a separate concern from detection accuracy and doesn't change the scientific status above.
 
 ## Next Steps / Evolution Path
 
@@ -127,8 +127,7 @@ v0.3.0 is an **experimental forensic baseline**, not a validated AI detector. It
 3. **S3 / object storage** – move temp media off local disk for multi-worker clusters.
 4. **Web dashboard & Chrome extension** – thin clients that call `/v1/analyze/url` and poll task status.
 5. **GPU workers** – set `MODEL_DEVICE=cuda` and scale Celery concurrency accordingly.
-6. **File magic-byte validation** – uploads currently trust the client-supplied `Content-Type` header rather than sniffing actual file signatures (flagged in the v0.3.0 audit, not yet fixed).
-7. **Redis-backed rate limiting** – the current limiter is in-memory/single-instance; needed before running more than one API replica.
+6. **Redis-backed rate limiting** – the current limiter is in-memory/single-instance; needed before running more than one API replica.
 
 ## Evaluation, Strategy & Roadmap
 
@@ -148,9 +147,9 @@ Key takeaways:
 
 This project is public and open to contributors — see
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, ground rules, and the
-current highest-priority gaps (file magic-byte validation, and — the
-single most valuable contribution possible — a real evaluation harness
-that turns "a heuristic signal" into a measured detector).
+current highest-priority gap — the single most valuable contribution
+possible: a real evaluation harness that turns "a heuristic signal"
+into a measured detector.
 
 ## License & Handover
 

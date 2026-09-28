@@ -19,6 +19,11 @@ opencv-python-headless>=4.10.0
 Pillow>=10.4.0
 numpy>=1.26.0
 
+# Magic-byte file signature detection (Gate D2) - pure Python, no libmagic
+# system dependency, used instead of trusting client Content-Type headers
+# or URL file extensions.
+filetype>=1.2.0
+
 # Optional C2PA (uncomment when ready)
 # c2pa-python>=0.37.0
 # fast-c2pa-python>=0.1.6

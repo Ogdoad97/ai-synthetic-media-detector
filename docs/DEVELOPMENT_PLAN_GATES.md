@@ -5,14 +5,14 @@ Same operating rule as the rest of the portfolio:
 > Build → test → verify → harden → promote → document → move to the next gate.
 
 Completion percentages reflect verified functionality, not code volume.
-This project is currently at the end of **Gate D1** (security/robustness
-hardening) — see below.
+This project is currently at the end of **Gate D2** (input validation
+completion) — see below.
 
-## Current position: ~30-35%
+## Current position: ~35%
 
 The forensic baseline (image + video analysis, heatmap, findings) and its
 security perimeter (SSRF resistance, rate limiting, decompression-bomb
-guard) are built and verified. The two things that would make this a real
+guard, magic-byte input validation, sanitized errors) are built and verified. The two things that would make this a real
 product — a validated detection model and any client anyone can actually
 use — are both still ahead.
 
@@ -26,11 +26,27 @@ use — are both still ahead.
 - [x] Lean base dependencies (torch/torchvision split out, unused by the live path)
 - [x] 48/48 tests, verified live against the running server, not just pytest
 
-## Gate D2 — Input validation completion
+## Gate D2 — Input validation completion (DONE, v0.3.1)
 
-- [ ] File magic-byte validation (stop trusting client-supplied Content-Type)
-- [ ] Video-specific adversarial tests (malformed containers, codec mismatches, zero-frame videos)
-- [ ] Structured error responses audited for information leakage (stack traces, internal paths)
+- [x] File magic-byte validation (`app/core/file_validation.py`): image/video
+      uploads AND remote URL fetches are typed by their real signature; the
+      client `Content-Type` header and URL extension no longer decide anything
+- [x] Video-specific adversarial tests (`tests/test_video_adversarial.py`):
+      malformed/truncated/empty containers, zero-frame videos, codec mismatch,
+      lying extensions, oversized frame dimensions
+- [x] Structured error responses audited for information leakage: no exception
+      text, internal path or stack detail reaches a client (routes, Celery
+      task failures, global handler); full detail is logged server-side only
+- [x] Found and fixed during the gate: video frames decoded before any size
+      check (header-level megapixel guard added); uploads read fully into
+      memory before the size limit was checked (reads now bounded to limit+1)
+- [x] 103/103 tests; every fix mutation-checked (reverted, tests confirmed to
+      fail) and verified live against a running server
+
+Residual risk, deliberately out of scope here: a signature check proves the
+*header* is right, not that the body is benign. A crafted file with valid
+magic bytes still reaches OpenCV/FFmpeg, so keep those dependencies patched
+and consider sandboxing/resource-limiting workers (Gate D6).
 
 ## Gate D3 — Evaluation harness (the highest-value gate — turns "a heuristic signal" into a measured detector)
 

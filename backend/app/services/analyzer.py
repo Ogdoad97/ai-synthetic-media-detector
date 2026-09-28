@@ -253,7 +253,25 @@ def sample_video_frames(
         raise ValueError("max_frames must be greater than zero")
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise ValueError(f"Cannot open video: {video_path}")
+        # Path stays out of the message: it is an internal temp location
+        # and this text can end up in logs/exception chains near API
+        # responses. It's logged separately for operators.
+        logger.warning("cv2.VideoCapture could not open %s", video_path)
+        raise ValueError("Cannot open video.")
+
+    # Reject oversized frame dimensions from the container header BEFORE
+    # decoding any frame. Without this, cap.read() allocates the full
+    # decoded frame (a 0.45MB file declaring 8000x7000 cost ~500MB RSS)
+    # and the megapixel guard in _decode_image only fires afterwards, on
+    # the re-encoded JPEG - too late to prevent the allocation.
+    width = float(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+    height = float(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+    if (width * height) / 1_000_000 > MAX_DECODED_MEGAPIXELS:
+        cap.release()
+        raise ValueError(
+            f"Video frames are {width * height / 1_000_000:.1f} megapixels, exceeding the "
+            f"{MAX_DECODED_MEGAPIXELS} megapixel safety limit."
+        )
 
     native_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)

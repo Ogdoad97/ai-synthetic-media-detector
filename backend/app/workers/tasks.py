@@ -21,6 +21,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+from app.core.file_validation import UnsupportedMediaError, sniff_mime
 from app.core.safe_fetch import safe_download
 from app.services.analyzer import analyze_image, analyze_video
 
@@ -32,6 +33,26 @@ def _ensure_temp_dir() -> Path:
     path = Path(settings.TEMP_MEDIA_DIR)
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+class MediaAnalysisError(Exception):
+    """
+    The only exception type a media task raises to Celery on failure.
+
+    Its message is what `GET /v1/tasks/{id}` returns to the client as
+    `error`, so it must always be safe to show: no internal file paths,
+    no library exception text, no stack detail. The real exception is
+    logged server-side (logger.exception) and chained via `__cause__`.
+    """
+
+
+def _public_failure(exc: Exception, default_message: str) -> MediaAnalysisError:
+    # UnsupportedMediaError messages are written to be client-safe; every
+    # other exception (OpenCV/PIL/OS errors, ValueErrors that may embed
+    # paths) is replaced with the generic message for this task type.
+    if isinstance(exc, UnsupportedMediaError):
+        return MediaAnalysisError(str(exc))
+    return MediaAnalysisError(default_message)
 
 
 
@@ -72,8 +93,9 @@ def process_image_task(self, file_path: str, original_filename: str = "image.jpg
         raise
     except Exception as exc:
         logger.exception("Image analysis failed")
-        self.update_state(state="FAILURE", meta={"error": str(exc)})
-        raise
+        raise _public_failure(
+            exc, "Image analysis failed. The file may be corrupted or in an unsupported format."
+        ) from exc
     finally:
         # Clean up temp file
         try:
@@ -127,8 +149,9 @@ def process_video_task(self, file_path: str, original_filename: str = "video.mp4
         raise
     except Exception as exc:
         logger.exception("Video analysis failed")
-        self.update_state(state="FAILURE", meta={"error": str(exc)})
-        raise
+        raise _public_failure(
+            exc, "Video analysis failed. The file may be corrupted or in an unsupported format."
+        ) from exc
     finally:
         try:
             if os.path.exists(file_path):
@@ -151,9 +174,19 @@ def process_url_task(self, url: str) -> Dict[str, Any]:
         self.update_state(state="PROGRESS", meta={"stage": "downloading", "progress": 5})
         safe_download(url, dest)
 
-        # Heuristic: treat as video if extension looks like one
-        video_exts = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v"}
-        is_video = dest.suffix.lower() in video_exts
+        # Decide image-vs-video from the downloaded bytes' real signature,
+        # not the URL's file extension or the server's Content-Type - both
+        # are chosen by whoever controls the remote URL (Gate D2).
+        with open(dest, "rb") as head_f:
+            detected = sniff_mime(head_f.read(8192))
+        if detected in settings.ALLOWED_VIDEO_TYPES:
+            is_video = True
+        elif detected in settings.ALLOWED_IMAGE_TYPES:
+            is_video = False
+        else:
+            raise UnsupportedMediaError(
+                "Remote content does not match a supported image or video format."
+            )
 
         self.update_state(
             state="PROGRESS",
@@ -189,8 +222,9 @@ def process_url_task(self, url: str) -> Dict[str, Any]:
         raise
     except Exception as exc:
         logger.exception("URL analysis failed for %s", url)
-        self.update_state(state="FAILURE", meta={"error": str(exc)})
-        raise
+        raise _public_failure(
+            exc, "Could not fetch or analyze the remote media."
+        ) from exc
     finally:
         try:
             if dest.exists():

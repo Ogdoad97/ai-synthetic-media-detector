@@ -4,8 +4,9 @@ FastAPI application entry-point for the AI Synthetic Media Detector.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.core.config import get_settings
@@ -37,7 +38,21 @@ app = FastAPI(
         "async Celery workers, and remote URL inspection for browser extensions."
     ),
     lifespan=lifespan,
+    # Previously settings.DEBUG existed but was never passed here, so it
+    # had no effect. Wired explicitly; defaults to False.
+    debug=settings.DEBUG,
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """
+    Last-resort safety net (Gate D2): no unhandled exception may leak an
+    internal message, stack trace, or filesystem path to a client. Full
+    detail is logged server-side; the client always gets a fixed message.
+    """
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 app.add_middleware(
     CORSMiddleware,

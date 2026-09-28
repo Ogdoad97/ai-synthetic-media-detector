@@ -28,6 +28,7 @@ from app.api.schemas import (
 )
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+from app.core.file_validation import UnsupportedMediaError, validate_media_signature
 from app.core.rate_limit import image_limiter, url_limiter, video_limiter
 from app.services.analyzer import analyze_image
 from app.workers.tasks import process_image_task, process_url_task, process_video_task
@@ -37,21 +38,54 @@ settings = get_settings()
 router = APIRouter(prefix=settings.API_V1_PREFIX)
 
 
-def _save_upload(file: UploadFile) -> Path:
-    """Persist an uploaded file to the shared temp directory."""
+def _persist_media(content: bytes, filename: Optional[str]) -> Path:
+    """
+    Write already-read, already-validated bytes to the shared temp
+    directory under a fresh random name. The client-supplied filename is
+    used only for its suffix (cosmetic - which worker code path reads it
+    back by extension); the actual on-disk name is always a fresh UUID,
+    so a crafted filename can never influence the write path.
+    """
     temp_dir = Path(settings.TEMP_MEDIA_DIR)
     temp_dir.mkdir(parents=True, exist_ok=True)
-    suffix = Path(file.filename or "upload.bin").suffix
+    suffix = Path(filename or "upload.bin").suffix
     dest = temp_dir / f"{uuid.uuid4().hex}{suffix}"
-    with open(dest, "wb") as f:
-        content = file.file.read()
-        if len(content) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit",
-            )
-        f.write(content)
+    dest.write_bytes(content)
     return dest
+
+
+async def _read_bounded(file: UploadFile) -> bytes:
+    """
+    Read an upload into memory, but never more than the size limit + 1
+    byte. Previously the whole body was read first and the size checked
+    afterwards, so a client could make the server hold an arbitrarily
+    large upload in memory before it was rejected with 413. Reading one
+    byte past the limit is enough to know it is oversized.
+    """
+    limit = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    content = await file.read(limit + 1)
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit",
+        )
+    return content
+
+
+def _reject_unless_real(content: bytes, allowed_mimes: set, category: str) -> None:
+    """
+    Authoritative content-type check: sniffs `content`'s real file
+    signature and rejects with 415 unless it matches one of
+    `allowed_mimes`. This - not the client's Content-Type header - is
+    what actually gates what gets handed to the analyzer.
+    """
+    try:
+        validate_media_signature(content, allowed_mimes, category)
+    except UnsupportedMediaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post(
@@ -66,23 +100,22 @@ async def analyze_image_endpoint(request: Request, file: UploadFile = File(...))
     Suitable for photos < ~10 MB. For larger media prefer the async endpoints.
     """
     image_limiter.check(request)
-    content_type = (file.content_type or "").lower()
-    if content_type not in settings.ALLOWED_IMAGE_TYPES and not content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported image type: {content_type}",
-        )
-
-    image_bytes = await file.read()
-    if len(image_bytes) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large")
+    image_bytes = await _read_bounded(file)
+    # The client's Content-Type header is not trusted for this decision -
+    # only the content's own magic bytes are (Gate D2).
+    _reject_unless_real(image_bytes, settings.ALLOWED_IMAGE_TYPES, "image")
 
     try:
         result = analyze_image(image_bytes, include_heatmap=True)
         return result.to_dict()
-    except Exception as exc:
+    except Exception:
+        # Full detail (which can include internal paths or library
+        # internals) goes to the server log only - never to the client.
         logger.exception("Synchronous image analysis failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=500,
+            detail="Image analysis failed. The file may be corrupted or in an unsupported format.",
+        ) from None
 
 
 @router.post(
@@ -98,14 +131,12 @@ async def analyze_video_endpoint(request: Request, file: UploadFile = File(...))
     Returns a task_id that can be polled via /v1/tasks/{task_id}.
     """
     video_limiter.check(request)
-    content_type = (file.content_type or "").lower()
-    if content_type not in settings.ALLOWED_VIDEO_TYPES and not content_type.startswith("video/"):
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported video type: {content_type}",
-        )
+    video_bytes = await _read_bounded(file)
+    # The client's Content-Type header is not trusted for this decision -
+    # only the content's own magic bytes are (Gate D2).
+    _reject_unless_real(video_bytes, settings.ALLOWED_VIDEO_TYPES, "video")
 
-    dest = _save_upload(file)
+    dest = _persist_media(video_bytes, file.filename)
     task = process_video_task.delay(str(dest), original_filename=file.filename or "video.mp4")
 
     return TaskAcceptedResponse(

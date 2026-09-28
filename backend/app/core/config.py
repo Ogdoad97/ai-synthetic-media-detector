@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/v1"
     PROJECT_NAME: str = "AI Synthetic Media Detector"
-    VERSION: str = "0.3.0"
+    VERSION: str = "0.3.1"
     DEBUG: bool = False
 
     # Redis / Celery

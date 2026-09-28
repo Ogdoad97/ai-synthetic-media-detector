@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.core.rate_limit import image_limiter, url_limiter, video_limiter
 from app.main import app
+from media_helpers import jpeg_bytes, mp4_bytes
 
 client = TestClient(app)
 
@@ -20,11 +21,7 @@ def _reset_limiters():
 
 
 def _tiny_jpeg_bytes() -> bytes:
-    import io
-    from PIL import Image
-    buf = io.BytesIO()
-    Image.new("RGB", (16, 16), color=(10, 20, 30)).save(buf, format="JPEG")
-    return buf.getvalue()
+    return jpeg_bytes()
 
 
 class TestImageEndpointRateLimit:
@@ -56,10 +53,14 @@ class TestVideoEndpointRateLimit:
         with patch("app.api.routes.process_video_task") as mock_task:
             mock_task.delay.return_value = MagicMock(id="fake-task-id")
             last_status = None
+            # Must be a REAL mp4 signature now - ingestion sniffs magic
+            # bytes, so arbitrary bytes labelled video/mp4 are rejected
+            # with 415 before ever reaching the queue.
+            video = mp4_bytes()
             for _ in range(11):  # video_limiter allows 10/min
                 last_status = client.post(
                     "/v1/analyze/video",
-                    files={"file": ("t.mp4", b"fake video bytes", "video/mp4")},
+                    files={"file": ("t.mp4", video, "video/mp4")},
                 ).status_code
             assert last_status == 429
             # Confirms the limiter runs BEFORE the expensive/queued work,

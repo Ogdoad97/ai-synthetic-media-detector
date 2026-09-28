@@ -45,22 +45,18 @@ See the README's "Next Steps" section and
 `docs/AUDIT_HARDENING_REPORT_v0.3.0.md`'s "Next gate" for the current
 honest list. In rough priority order:
 
-1. **File magic-byte validation on uploads** — currently trusts the
-   client-supplied `Content-Type` header, which is trivially spoofable.
-   Good first issue: self-contained, testable, doesn't touch the
-   forensic logic.
-2. **A real evaluation harness** — fixed train/val/test splits,
+1. **A real evaluation harness** — fixed train/val/test splits,
    cross-generator test sets, ROC-AUC/PR-AUC/calibration. This is the
    single most valuable contribution possible: it's what turns "a
    heuristic signal" into an actual measured detector.
-3. **C2PA provenance parsing** — currently scaffolded as
+2. **C2PA provenance parsing** — currently scaffolded as
    `"c2pa_status": "unknown"` everywhere; wiring in real Content
    Credentials parsing would be a genuinely new capability, not a fix.
-4. **Redis-backed rate limiting** — the current limiter is
+3. **Redis-backed rate limiting** — the current limiter is
    correct but in-memory/single-instance (see `app/core/rate_limit.py`'s
    own docstring); needed before this runs behind more than one API
    replica.
-5. **Web dashboard / Chrome extension clients** — `/v1/analyze/url`
+4. **Web dashboard / Chrome extension clients** — `/v1/analyze/url`
    already exists specifically for this; nothing consumes it yet.
 
 ## Reporting a security issue
