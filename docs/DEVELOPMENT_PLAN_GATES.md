@@ -5,10 +5,10 @@ Same operating rule as the rest of the portfolio:
 > Build → test → verify → harden → promote → document → move to the next gate.
 
 Completion percentages reflect verified functionality, not code volume.
-This project is currently at the end of **Gate D2** (input validation
-completion) — see below.
+This project is currently mid-**Gate D3**: the evaluation harness is built and
+tested, but has not yet been run on real data (see below).
 
-## Current position: ~35%
+## Current position: ~40%
 
 The forensic baseline (image + video analysis, heatmap, findings) and its
 security perimeter (SSRF resistance, rate limiting, decompression-bomb
@@ -48,18 +48,35 @@ Residual risk, deliberately out of scope here: a signature check proves the
 magic bytes still reaches OpenCV/FFmpeg, so keep those dependencies patched
 and consider sandboxing/resource-limiting workers (Gate D6).
 
-## Gate D3 — Evaluation harness (the highest-value gate — turns "a heuristic signal" into a measured detector)
+## Gate D3 — Evaluation harness (BUILT in v0.4.0; NOT COMPLETE until run on real data)
 
-- [ ] Fixed train/val/test splits, held out before any threshold tuning
-- [ ] Cross-generator test sets (not just one generator's outputs)
-- [ ] JPEG/crop/resize/re-encode robustness suite
-- [ ] ROC-AUC, PR-AUC, TPR@fixed-FPR, calibration curves
-- [ ] Per-generator and per-media-type reporting, not just an aggregate number
-- [ ] Model/version provenance recorded on every API result
+Harness capability (`backend/evaluation/`, see `docs/EVALUATION_HARNESS.md`):
 
-No threshold or scoring-formula change should ship without being run
-through this harness once it exists — the same "no gate/threshold change
-without evidence" discipline as KRATOS's promotion gate.
+- [x] Fixed splits assigned from data identity (group hash + seed), never from
+      results; group-aware; freezable and hash-checked (`splits.json`)
+- [x] Cross-generator mechanism: `--heldout` generators never touch validation
+      or threshold choice, reported separately
+- [x] JPEG (q90/70/50) / downscale / resize round-trip / crop / blur / noise
+      robustness suite, threshold held frozen
+- [x] ROC-AUC (+ bootstrap CI), PR-AUC, TPR/FPR at the frozen and the deployed
+      threshold (Wilson CIs), calibration curve, ECE, Brier
+- [x] Per-generator, per-real-source and per-media-type reporting
+- [x] Detector name/version/validated/thresholds recorded on every API result
+- [x] 139 new tests; 12 protocol safeguards mutation-checked
+
+Completion criteria — still open, and the reason this gate is not ticked off:
+
+- [ ] Run on a real, licensed dataset with >= 2 generators + a held-out one,
+      and >= 100 real / 100 synthetic test samples per media type
+- [ ] Publish the report (JSON + Markdown + splits.json + manifest hash)
+- [ ] Only then may `detector_info()["validated"]` be considered for `True`,
+      and only if the report supports it (a poor result is a valid result)
+
+No threshold or scoring-formula change should ship without a fresh harness
+report showing the effect - the same "no gate/threshold change without
+evidence" discipline as KRATOS's promotion gate. The thresholds now live in
+named constants (`SYNTHETIC_THRESHOLD`, `UNCERTAIN_LOW`) so such a change is a
+one-line, reviewable diff.
 
 ## Gate D4 — Real detection model integration
 

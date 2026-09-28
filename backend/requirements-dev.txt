@@ -1,0 +1,5 @@
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27            # FastAPI TestClient
+scikit-learn>=1.4      # tests cross-check the evaluation metrics against it (not a runtime dependency)
+scipy>=1.11            # tests cross-check the Wilson interval against it

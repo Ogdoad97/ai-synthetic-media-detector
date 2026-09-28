@@ -30,6 +30,33 @@ logger = logging.getLogger(__name__)
 # dimensions.
 MAX_DECODED_MEGAPIXELS = 50
 
+# Decision thresholds. Changing either one is a change to the detector's
+# behaviour and must be justified by an evaluation-harness run (Gate D3):
+# see docs/DEVELOPMENT_PLAN_GATES.md, "no threshold change without evidence".
+SYNTHETIC_THRESHOLD = 0.60      # score above this => is_ai_generated
+UNCERTAIN_LOW = 0.40            # [UNCERTAIN_LOW, SYNTHETIC_THRESHOLD] => "uncertain"
+
+
+def detector_info() -> Dict[str, Any]:
+    """
+    Provenance attached to every API result: which detector produced the
+    score, at what version, whether it has been validated, and the exact
+    thresholds behind `is_ai_generated` / `score_label`. Lets any stored
+    result be traced back to (and re-evaluated against) the detector that
+    made it.
+    """
+    from app.core.config import get_settings
+    return {
+        "name": "forensic-baseline",
+        "version": get_settings().VERSION,
+        "kind": "heuristic",
+        # Flips to True only when a published evaluation-harness report
+        # supports it (Gate D3 completion criterion). Not before.
+        "validated": False,
+        "synthetic_threshold": SYNTHETIC_THRESHOLD,
+        "uncertain_band": [UNCERTAIN_LOW, SYNTHETIC_THRESHOLD],
+    }
+
 
 @dataclass
 class FrameResult:
@@ -54,6 +81,7 @@ class AnalysisResult:
     video_duration_sec: Optional[float] = None
     c2pa_status: str = "unknown"
     score_label: str = "uncertain"
+    detector: Dict[str, Any] = field(default_factory=detector_info)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -67,6 +95,7 @@ class AnalysisResult:
             "frames_analyzed": self.frames_analyzed,
             "video_duration_sec": self.video_duration_sec,
             "c2pa_status": self.c2pa_status,
+            "detector": self.detector,
             "frame_results": [
                 {
                     "frame_index": fr.frame_index,
@@ -181,9 +210,9 @@ def _heatmap_data_uri(image: np.ndarray, heatmap: np.ndarray) -> str:
 
 
 def _score_label(score: float) -> str:
-    if 0.40 <= score <= 0.60:
+    if UNCERTAIN_LOW <= score <= SYNTHETIC_THRESHOLD:
         return "uncertain"
-    return "synthetic_signal" if score > 0.60 else "authentic_signal"
+    return "synthetic_signal" if score > SYNTHETIC_THRESHOLD else "authentic_signal"
 
 
 def analyze_image(image_bytes: bytes, include_heatmap: bool = True) -> AnalysisResult:
@@ -199,7 +228,7 @@ def analyze_image(image_bytes: bytes, include_heatmap: bool = True) -> AnalysisR
     # Entropy is used only as a weak regularizer.
     score = float(np.clip(0.60 * fft_score + 0.30 * recompression + 0.10 * (1.0 - entropy), 0, 1))
     label = _score_label(score)
-    is_ai = score > 0.60
+    is_ai = score > SYNTHETIC_THRESHOLD
 
     heatmap_b64 = None
     intensity = 0.0
@@ -352,7 +381,7 @@ def analyze_video(
         },
     ]
     return AnalysisResult(
-        is_ai_generated=overall > 0.60,
+        is_ai_generated=overall > SYNTHETIC_THRESHOLD,
         confidence_percentage=overall * 100,
         overall_score=overall,
         score_label=_score_label(overall),

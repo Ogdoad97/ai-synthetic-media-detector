@@ -1,6 +1,6 @@
 # AI Synthetic Media Authenticity Detector
 
-**v0.3.1 development build** – Cloud-first hybrid architecture for screening images and videos for synthetic-media forensic signals with an explainable artifact heatmap. Independently security-audited this round — see `docs/AUDIT_HARDENING_REPORT_v0.3.0.md` for a DNS-rebinding SSRF fix, rate limiting, and an image decompression-bomb guard, all verified live against the running server, not just in tests. v0.3.1 completes input validation (Gate D2): magic-byte file signature checks instead of trusting `Content-Type`, sanitized error responses, video adversarial hardening — see `docs/AUDIT_HARDENING_REPORT_v0.3.1.md`.
+**v0.4.0 development build** – Cloud-first hybrid architecture for screening images and videos for synthetic-media forensic signals with an explainable artifact heatmap. Independently security-audited this round — see `docs/AUDIT_HARDENING_REPORT_v0.3.0.md` for a DNS-rebinding SSRF fix, rate limiting, and an image decompression-bomb guard, all verified live against the running server, not just in tests. v0.3.1 completes input validation (Gate D2): magic-byte file signature checks instead of trusting `Content-Type`, sanitized error responses, video adversarial hardening — see `docs/AUDIT_HARDENING_REPORT_v0.3.1.md`. v0.4.0 adds the evaluation harness (Gate D3) and detector provenance on every result — see `docs/EVALUATION_HARNESS.md`. **The harness is built; a real-data run has not been done yet, so detection accuracy is still unmeasured.**
 
 ## Architecture Overview
 
@@ -118,7 +118,7 @@ ai-synthetic-media-detector/
 
 ## Important scientific status
 
-v0.3.1 is an **experimental forensic baseline**, not a validated AI detector. Its score is a heuristic signal and must not be interpreted as a probability or proof of origin. The next accuracy milestone is a trained ensemble evaluated on held-out, cross-generator datasets with calibration, ROC/PR curves, and robustness tests. This round's audit (`docs/AUDIT_HARDENING_REPORT_v0.3.0.md`) hardened the system's *security and robustness* boundary — SSRF resistance, rate limiting, decompression-bomb protection — which is a separate concern from detection accuracy and doesn't change the scientific status above.
+v0.4.0 is an **experimental forensic baseline**, not a validated AI detector. Its score is a heuristic signal and must not be interpreted as a probability or proof of origin. The next accuracy milestone is a trained ensemble evaluated on held-out, cross-generator datasets with calibration, ROC/PR curves, and robustness tests. This round's audit (`docs/AUDIT_HARDENING_REPORT_v0.3.0.md`) hardened the system's *security and robustness* boundary — SSRF resistance, rate limiting, decompression-bomb protection — which is a separate concern from detection accuracy and doesn't change the scientific status above.
 
 ## Next Steps / Evolution Path
 
@@ -147,9 +147,9 @@ Key takeaways:
 
 This project is public and open to contributors — see
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, ground rules, and the
-current highest-priority gap — the single most valuable contribution
-possible: a real evaluation harness that turns "a heuristic signal"
-into a measured detector.
+current highest-priority gap: running the evaluation harness
+(`python -m evaluation`) on a real, licensed real-vs-generated dataset and
+publishing the numbers. The harness exists; the measurement does not yet.
 
 ## License & Handover
 

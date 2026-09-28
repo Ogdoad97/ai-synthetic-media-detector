@@ -45,10 +45,12 @@ See the README's "Next Steps" section and
 `docs/AUDIT_HARDENING_REPORT_v0.3.0.md`'s "Next gate" for the current
 honest list. In rough priority order:
 
-1. **A real evaluation harness** — fixed train/val/test splits,
-   cross-generator test sets, ROC-AUC/PR-AUC/calibration. This is the
-   single most valuable contribution possible: it's what turns "a
-   heuristic signal" into an actual measured detector.
+1. **Run the evaluation harness on real data and publish the report** —
+   the harness is built (`docs/EVALUATION_HARNESS.md`, `python -m
+   evaluation`), but no real-vs-generated dataset has been run through it.
+   Until that report exists, detection accuracy is unmeasured and the API's
+   `detector.validated` flag stays `false`. Dataset licensing/provenance
+   matters: record it in the report, don't just link a download.
 2. **C2PA provenance parsing** — currently scaffolded as
    `"c2pa_status": "unknown"` everywhere; wiring in real Content
    Credentials parsing would be a genuinely new capability, not a fix.

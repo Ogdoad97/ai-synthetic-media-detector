@@ -61,6 +61,7 @@ class AnalysisResponse(BaseModel):
     frames_analyzed: int = 1
     video_duration_sec: Optional[float] = None
     c2pa_status: str = "unknown"
+    detector: Optional[Dict[str, Any]] = None   # provenance: name, version, validated, thresholds
     task_id: Optional[str] = None
     original_filename: Optional[str] = None
     source_url: Optional[str] = None
