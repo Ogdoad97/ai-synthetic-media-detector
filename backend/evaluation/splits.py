@@ -75,6 +75,15 @@ def load_manifest(path: Path) -> Tuple[List[Sample], List[str]]:
             raise ManifestError(f"row {i}: needs path, integer label, generator") from None
         if not p or not gen:
             raise ManifestError(f"row {i}: empty path or generator")
+        # A manifest is data a person might download (a shared benchmark's
+        # own manifest, a colleague's file) and hand straight to this
+        # function - `path` is untrusted the same way an upload is. An
+        # absolute path or a ".." component could otherwise point outside
+        # `root` entirely (check_files_exist's containment check below is
+        # the second half of this; this half rejects it before any
+        # file-existence check even runs, with a clearer error).
+        if Path(p).is_absolute() or ".." in Path(p).parts:
+            raise ManifestError(f"row {i}: path must be relative and stay under root, got '{p}'")
         if label not in (0, 1):
             raise ManifestError(f"row {i}: label must be 0 (real) or 1 (synthetic), got {label}")
         if (label == 0) != _is_real_generator(gen):
@@ -101,6 +110,19 @@ def load_manifest(path: Path) -> Tuple[List[Sample], List[str]]:
 
 
 def check_files_exist(samples: Sequence[Sample], root: Path) -> None:
+    """
+    Also the second half of the path-traversal guard (load_manifest's
+    structural check is the first half): resolves symlinks before
+    checking containment, so a path that's relative and "..".free in the
+    manifest's own text can't still escape root via a symlink planted
+    under it.
+    """
+    root_resolved = Path(root).resolve()
+    escaped = [s.path for s in samples if not (root_resolved / s.path).resolve().is_relative_to(root_resolved)]
+    if escaped:
+        head = ", ".join(escaped[:5])
+        raise ManifestError(f"{len(escaped)} manifest path(s) resolve outside root, e.g. {head}")
+
     missing = [s.path for s in samples if not (Path(root) / s.path).is_file()]
     if missing:
         head = ", ".join(missing[:5])

@@ -1,10 +1,25 @@
 version: "3.9"
 
+# Security note (added in the 2026-10-06 audit): redis and flower's ports
+# are bound to 127.0.0.1 only, not every interface. Neither has
+# authentication configured by default - redis takes none at all here,
+# and Flower (the Celery monitoring dashboard) has no auth unless
+# FLOWER_BASIC_AUTH is set. Publishing either with no bind address
+# (`"6379:6379"` instead of `"127.0.0.1:6379:6379"`) means it listens on
+# every network interface, including a public one on a cloud VM - this
+# exact misconfiguration is a well-known way exposed Redis instances get
+# found and abused within minutes of going live. Binding to localhost
+# doesn't break container-to-container traffic (the api/worker containers
+# talk to redis over the internal Docker network via its service name,
+# never through this published port) - it only restricts access from the
+# host machine itself. To reach either service remotely, tunnel over SSH
+# (`ssh -L 5555:localhost:5555 your-host`) rather than widening the bind.
+
 services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -51,9 +66,24 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A app.core.celery_app.celery_app flower --port=5555
+    # FLOWER_BASIC_AUTH (format: user:password) is optional on top of the
+    # localhost-only bind above - unset, Flower runs with no login at all,
+    # which is fine for a port no one outside this machine can reach, but
+    # set it anyway before ever widening that bind. The shell conditional
+    # (rather than always passing --basic-auth=$FLOWER_BASIC_AUTH, even
+    # empty) matters: Flower's own basic_auth option is `multiple=True`,
+    # so an empty value becomes a single empty-string credential - truthy,
+    # not "no auth" - which would make Flower demand a login nothing can
+    # ever satisfy, locking out the legitimate operator too.
+    command: >
+      sh -c '
+      if [ -n "$FLOWER_BASIC_AUTH" ]; then
+        celery -A app.core.celery_app.celery_app flower --port=5555 --basic-auth=$FLOWER_BASIC_AUTH;
+      else
+        celery -A app.core.celery_app.celery_app flower --port=5555;
+      fi'
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:

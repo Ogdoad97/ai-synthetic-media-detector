@@ -66,7 +66,7 @@ async def _read_bounded(file: UploadFile) -> bytes:
     content = await file.read(limit + 1)
     if len(content) > limit:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,  # HTTP_413_REQUEST_ENTITY_TOO_LARGE is deprecated in current Starlette
             detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit",
         )
     return content

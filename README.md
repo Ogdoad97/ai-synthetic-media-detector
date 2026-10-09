@@ -49,6 +49,12 @@ Or simply:
 docker compose up --build
 ```
 
+Redis and the Flower dashboard are published to `127.0.0.1` only, not
+every network interface — reach them remotely over an SSH tunnel
+(`ssh -L 5555:localhost:5555 your-host`), never by widening the bind.
+Set `FLOWER_BASIC_AUTH=user:password` for a login on top of that (Flower
+has none by default). See `docs/CHANGES_security_audit_20261006.md`.
+
 API docs: http://localhost:8000/docs  
 Flower:   http://localhost:5555
 

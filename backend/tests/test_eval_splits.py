@@ -157,3 +157,49 @@ class TestFreezing:
         h1 = manifest_sha256(p)
         write_manifest(tmp_path, [row("a.png", group="x")])
         assert manifest_sha256(p) != h1
+
+
+class TestPathTraversalGuard:
+    """
+    A manifest's `path` field is data a person might download (a shared
+    benchmark's own manifest, a colleague's file) and hand straight to
+    this loader — untrusted the same way an upload is, not a string the
+    code itself constructed. These lock in that it can't point outside
+    --root, structurally (load_manifest) and after symlink resolution
+    (check_files_exist).
+    """
+
+    def test_an_absolute_path_is_rejected_at_load_time(self, tmp_path):
+        with pytest.raises(ManifestError, match="must be relative"):
+            load_manifest(write_manifest(tmp_path, [row("/etc/passwd")]))
+
+    @pytest.mark.parametrize("p", ["../secret.png", "a/../../secret.png", "../../etc/passwd"])
+    def test_a_dotdot_component_is_rejected_at_load_time(self, tmp_path, p):
+        with pytest.raises(ManifestError, match="must be relative"):
+            load_manifest(write_manifest(tmp_path, [row(p)]))
+
+    def test_a_plain_relative_path_is_unaffected(self, tmp_path):
+        (tmp_path / "a.png").write_bytes(b"x")
+        samples, _ = load_manifest(write_manifest(tmp_path, [row("a.png")]))
+        check_files_exist(samples, tmp_path)  # does not raise
+
+    def test_a_subdirectory_path_is_unaffected(self, tmp_path):
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "a.png").write_bytes(b"x")
+        samples, _ = load_manifest(write_manifest(tmp_path, [row("images/a.png")]))
+        check_files_exist(samples, tmp_path)  # does not raise
+
+    def test_a_symlink_escaping_root_is_caught_by_check_files_exist(self, tmp_path):
+        # A path that is relative and ".."-free in the manifest's own text
+        # (passes load_manifest) can still escape root if a symlink planted
+        # under root points outside it — this is what the second half of
+        # the guard, in check_files_exist, is for.
+        outside = tmp_path.parent / "outside_secret.png"
+        outside.write_bytes(b"secret")
+        root = tmp_path / "root"
+        root.mkdir()
+        (root / "link.png").symlink_to(outside)
+
+        samples, _ = load_manifest(write_manifest(root, [row("link.png")]))
+        with pytest.raises(ManifestError, match="outside root"):
+            check_files_exist(samples, root)
