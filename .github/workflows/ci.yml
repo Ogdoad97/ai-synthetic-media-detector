@@ -1,0 +1,46 @@
+name: CI
+
+# Runs the backend test suite on every push. Added as part of the
+# 2026-10-06 security audit - this repo had no CI at all before. No Redis
+# or other external service needed: the test suite mocks Celery's .delay()
+# at the route level rather than requiring a real broker (see
+# tests/test_routes_rate_limit.py and friends).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pip-audit + pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+          pip-audit -r requirements-dev.txt
+
+      - name: Run the test suite
+        run: pytest -q
