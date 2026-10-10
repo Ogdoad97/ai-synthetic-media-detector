@@ -73,6 +73,21 @@ shell logic matches intent in both cases, and read Flower's own
   Gate D2 shipped, so this was a check that nothing silently drifted, not
   a re-audit from scratch.
 
+## Found while adding CI: the test suite had never run in a clean environment
+This repo had no CI at all before this audit — added
+`.github/workflows/ci.yml`. Its first-ever run failed immediately:
+`ModuleNotFoundError: No module named 'app'`. With no pytest config
+anywhere in the repo, every `from app...` import in the test suite only
+ever resolved by accident of whatever happened to already be on
+`sys.path` in the environment running pytest, never because anything
+made it so deliberately. Reproduced locally in an isolated virtualenv to
+confirm, then fixed with `backend/pytest.ini` (`pythonpath = .`, a
+built-in pytest 8+ feature) — 249/249 pass there, and CI now passes for
+real. Not a vulnerability, but worth recording here: it's the same shape
+of problem as the lockfile drift found in this portfolio's npm projects
+this week — something that looked fine kept looking fine for a long
+stretch only because nothing had ever checked it for real.
+
 ## Not done in this pass
 Gate D3 itself (running the harness on real data to actually measure
 detection accuracy) is unrelated to this audit and remains open for the
