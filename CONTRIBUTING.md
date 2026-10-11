@@ -67,3 +67,17 @@ If you find a real vulnerability (in the spirit of the DNS-rebinding fix
 in v0.3.0), please open an issue describing the threat model — this
 project doesn't have a formal disclosure process yet, so a normal GitHub
 issue is fine for now, but flag it as security-relevant in the title.
+
+
+## Public benefit and safety review
+
+Read [PUBLIC_BENEFIT_CHARTER.md](PUBLIC_BENEFIT_CHARTER.md), [RESPONSIBLE_USE_POLICY.md](RESPONSIBLE_USE_POLICY.md), and [docs/SAFETY_AND_TRUST_REQUIREMENTS.md](docs/SAFETY_AND_TRUST_REQUIREMENTS.md) before proposing changes that affect detection claims, media retention, privacy, security, provenance, or user-facing conclusions.
+
+Pull requests in these areas should state:
+- the public benefit and intended users;
+- the threat model and foreseeable misuse;
+- tests and evidence added;
+- any privacy, fairness, or false-positive/false-negative trade-offs;
+- known gaps and follow-up work.
+
+Do not mark a requirement as complete without a test, report, or other reviewable evidence. Do not describe the detector as validated until the documented real-data evaluation gate passes.
