@@ -171,5 +171,6 @@ This project is intended to serve the public interest through transparent, priva
 - **[Public Benefit Charter](PUBLIC_BENEFIT_CHARTER.md):** mission, principles, stewardship, and limits.
 - **[Responsible Use Policy](RESPONSIBLE_USE_POLICY.md):** intended use, misuse concerns, and reporting guidance.
 - **[Safety and Trust Requirements](docs/SAFETY_AND_TRUST_REQUIREMENTS.md):** testable requirements, current gaps, release gates, and priorities.
+- **[Media Privacy and Retention](docs/MEDIA_PRIVACY_AND_RETENTION.md):** current media flow, retention expectations, and a deployment-blocking task-result access-control gap.
 
 These documents describe the maintained upstream project's commitments; they do not override the MIT licence or guarantee that downstream forks will preserve safeguards. The requirements document distinguishes existing controls from work that still needs implementation and evidence. In particular, detection accuracy remains unmeasured until a properly licensed real-data evaluation is completed.
