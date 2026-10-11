@@ -162,3 +162,14 @@ publishing the numbers. The harness exists; the measurement does not yet.
 This package is the complete technical handover, licensed under MIT (see `LICENSE`). All code contains comprehensive docstrings and type annotations so a new engineer can extend any component without reverse-engineering.
 
 Built for maximum accuracy, explainability, and rapid adaptation to new generative models.
+
+
+## Public Benefit, Responsible Use & Trust
+
+This project is intended to serve the public interest through transparent, privacy-conscious, scientifically honest media analysis. Its detector is experimental: outputs are signals for further investigation, not proof of origin or a verdict about a person.
+
+- **[Public Benefit Charter](PUBLIC_BENEFIT_CHARTER.md):** mission, principles, stewardship, and limits.
+- **[Responsible Use Policy](RESPONSIBLE_USE_POLICY.md):** intended use, misuse concerns, and reporting guidance.
+- **[Safety and Trust Requirements](docs/SAFETY_AND_TRUST_REQUIREMENTS.md):** testable requirements, current gaps, release gates, and priorities.
+
+These documents describe the maintained upstream project's commitments; they do not override the MIT licence or guarantee that downstream forks will preserve safeguards. The requirements document distinguishes existing controls from work that still needs implementation and evidence. In particular, detection accuracy remains unmeasured until a properly licensed real-data evaluation is completed.
