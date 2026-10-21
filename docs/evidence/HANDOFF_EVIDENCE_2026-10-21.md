@@ -32,3 +32,10 @@
 4. Continue adversarial and resource-exhaustion testing; keep privacy/retention defaults strict.
 
 No real-world accuracy numbers are claimed or verified in this session. The evaluation infrastructure is the primary mature artifact.
+
+## Priority-4 pass — measured accuracy path
+1. Assemble benchmark: genuine + synthetic with known provenance; split by source/creator/generator; document licences.
+2. Run `python -m evaluation` (or documented harness entry) with frozen threshold protocol already implemented.
+3. Report precision/recall/FPR/ROC-AUC/calibration + CIs + content-type breakdowns; list warnings.
+4. Publish model card; keep API copy as indicators not proof.
+5. Task-result auth + retention tests still open per SAFETY docs.
